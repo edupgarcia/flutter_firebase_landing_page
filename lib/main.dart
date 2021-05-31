@@ -1,7 +1,18 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_firebase_landing_page/links_landing_page/links_landing_page.dart';
+import 'package:flutter_firebase_landing_page/models/link_data.dart';
+import 'package:flutter_firebase_landing_page/not_found_page.dart';
+import 'package:flutter_firebase_landing_page/settings_page/settings_page.dart';
+import 'package:provider/provider.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  FirebaseFirestore.instance.settings = Settings(
+    host: 'localhost:8080',
+    sslEnabled: false,
+    persistenceEnabled: false,
+  );
   runApp(MyApp());
 }
 
@@ -9,116 +20,52 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
-        primarySwatch: Colors.blue,
-      ),
-      home: LinkLandingPage(),
-    );
-  }
-}
+    final linksCollection = FirebaseFirestore.instance.collection('links');
+    final userLinkDataStream = linksCollection.snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return LinkData.fromMap(doc.data());
+      }).toList();
+    });
+    // return StreamBuilder<QuerySnapshot>(
+    //     stream: FirebaseFirestore.instance.collection('links').snapshots(),
+    //     builder: (context, snapshot) {
+    //       if (snapshot.connectionState == ConnectionState.waiting) {
+    //         return Center(child: CircularProgressIndicator());
+    //       }
 
-class LinkLandingPage extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      child: Center(
-        child: Column(
-          children: [
-            SizedBox(
-              height: 35,
-            ),
-            CircleAvatar(
-              backgroundImage: NetworkImage(imageURL),
-              backgroundColor: Colors.white,
-              radius: 48,
-            ),
-            SizedBox(
-              height: 12,
-            ),
-            Text(
-              'edupgarcia.ti',
-              style: (TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-              )),
-            ),
-            SizedBox(
-              height: 20,
-            ),
-            for (var document in documents)
-              ButtonLink(
-                title: document['title'] ?? '',
-                urlString: document['url'] ?? '',
-              ),
-          ],
+    //       final _documents = snapshot.data!.docs.map((doc) {
+    //         return LinkData.fromMap(doc.data() as Map<String, dynamic>);
+    //       }).toList();
+
+    //       // return Provider<List<LinkData>>(
+    //       // create: (context) => _documents,
+    //       // return ProxyProvider0<List<LinkData>>(
+    //       // update: (context, linkDataList) => _documents,
+    //     });
+
+    return StreamProvider<List<LinkData>>(
+      initialData: [],
+      create: (context) => userLinkDataStream,
+      child: MaterialApp(
+        title: 'Flutter Firebase Landing Page',
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
         ),
+        initialRoute: '/',
+        routes: {
+          '/': (context) => LinksLandingPage(),
+          '/settings': (context) => SettingsPage(),
+        },
+        onUnknownRoute: (settings) {
+          return MaterialPageRoute(
+            builder: (context) {
+              return NotFoundPage();
+            },
+          );
+        },
+        // home: LinkLandingPage(),
+        // home: SettingsPage(),
       ),
     );
   }
 }
-
-final documents = [
-  {
-    'title': 'YouTube',
-    'url': 'https://www.youtube.com/channel/UCouEQBqS9VeG6_hsjCaHUQw'
-  },
-  {
-    'title': 'LinkedIn',
-    'url': 'https://www.linkedin.com/in/eduardopereiragarcia/'
-  },
-  {'title': 'Website', 'url': 'https://it-microsystems.net'},
-];
-
-class ButtonLink extends StatelessWidget {
-  const ButtonLink({
-    Key? key,
-    required this.title,
-    required this.urlString,
-  }) : super(key: key);
-
-  final String title;
-  final String urlString;
-
-  @override
-  Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: SizedBox(
-        width: width > 680 ? 680 : width * 0.95,
-        height: 40,
-        child: TextButton(
-          onPressed: () => launch(urlString),
-          child: Text(
-            title,
-            style: TextStyle(
-              color: Colors.black,
-              backgroundColor: Colors.tealAccent,
-              fontSize: 16,
-            ),
-          ),
-          style: ButtonStyle(
-            backgroundColor: MaterialStateProperty.all(
-              Colors.tealAccent,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-final imageURL =
-    'https://lh3.googleusercontent.com/ogw/ADGmqu-i1QVA_Ki6raOpna-D9uDBYZOVgWoKFiuHGdgOm10=s83-c-mo';
